@@ -401,16 +401,42 @@ function renderPlan(){
     <div class="meta"><bdi>الصف ${clsHTML(s.c)}</bdi> — <bdi>${esc(s.s)}</bdi> — <span class="cls">${TIMES[s.p-1]}–${TIMES_END[s.p-1]}</span></div>
     <select data-i="${i}" style="margin-top:6px">${opts.join('')}</select></div></div>`;
   });
-  h+=`<div class="row noprint" style="margin-top:12px"><button class="btn" id="btnSave">اعتماد وحفظ</button><button class="btn alt" id="btnShare">مشاركة واتساب</button><button class="btn ghost" id="btnCopy">نسخ</button><button class="btn ghost" onclick="printPage()">طباعة</button></div>`;
+  h+=`<div class="row noprint" style="margin-top:12px"><button class="btn" id="btnSave">اعتماد وحفظ</button><a class="btn" id="btnShare" href="#" target="_blank" rel="noopener" style="background:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.6 2.1 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.4z"/></svg>إرسال عبر واتساب</a><button class="btn ghost" id="btnCopy">نسخ الرسالة</button><button class="btn ghost" onclick="printPage()">طباعة</button></div>`;
+  h+=`<details class="noprint" style="margin-top:12px"><summary class="muted" style="cursor:pointer">معاينة رسالة واتساب</summary><pre id="waPrev" style="white-space:pre-wrap;font-family:inherit;background:var(--green-l);border-radius:12px;padding:12px;margin:8px 0 0;font-size:14px;line-height:1.8"></pre></details>`;
   box.innerHTML=h;
+  const txt=planText();$('#waPrev').textContent=txt;
+  $('#btnShare').href='https://api.whatsapp.com/send?text='+encodeURIComponent(txt);
   box.querySelectorAll('select').forEach(sel=>sel.onchange=()=>{PLAN[+sel.dataset.i].sub=sel.value===''?null:+sel.value;renderPlan()});
-  $('#btnSave').onclick=savePlan;$('#btnShare').onclick=()=>share(planText());$('#btnCopy').onclick=()=>copy(planText());
+  $('#btnSave').onclick=savePlan;$('#btnShare').onclick=e=>{if(window.Android&&Android.whatsapp){e.preventDefault();Android.whatsapp(planText())}};$('#btnCopy').onclick=()=>copy(planText());
+}
+function clsWords(c){
+  const parts=splitCls(c);const g=clsGrade(parts[0]);
+  const secs=parts.map(x=>ar(clsSec(x)));
+  return `الصف ${ar(g)} (${secs.length>1?'الشعب ':'شعبة '}${secs.join(' و')})`;
 }
 function planText(){
-  const d=subDay();
-  let t=`*مدرسة معاذ بن جبل — جدول الاحتياط*\n${DAYS[d]} ${$('#subDate').value}\n\n`;
-  PLAN.forEach(s=>{t+=`الحصة ${ar(s.p)} | الصف ${s.c} | ${s.s}\nبدلاً من: ${T[s.absent].name}\nالاحتياط: ${s.sub!=null?T[s.sub].name:'—'}\n\n`});
-  return t.trim();
+  const d=subDay();const date=$('#subDate').value;
+  const dateTxt=new Date(date+'T12:00:00').toLocaleDateString('ar-OM',{year:'numeric',month:'long',day:'numeric'});
+  const L='━━━━━━━━━━━━━━';
+  let t=`🏫 *مدرسة معاذ بن جبل للتعليم الأساسي*\n📋 *جدول حصص الاحتياط*\n📅 يوم ${DAYS[d]} ${dateTxt}\n${L}\n`;
+  const absIds=[...new Set(PLAN.map(s=>s.absent))];
+  t+=`\n🚫 *المعلمون الغائبون (${ar(absIds.length)}):*\n`+absIds.map((id,i)=>`${ar(i+1)}. ${T[id].name}`).join('\n')+`\n\n${L}\n`;
+  const pers=[...new Set(PLAN.map(s=>s.p))].sort((a,b)=>a-b);
+  pers.forEach(p=>{
+    t+=`\n⏰ *الحصة ${ar(p)}*  (${TIMES[p-1]} - ${TIMES_END[p-1]})\n`;
+    PLAN.filter(s=>s.p===p).forEach(s=>{
+      t+=`▪️ ${clsWords(s.c)} — ${s.s}\n`;
+      t+=`   ↩️ بدلاً من: ${T[s.absent].name}\n`;
+      t+=`   ✅ الاحتياط: *${s.sub!=null?T[s.sub].name:'لم يُحدد'}*\n`;
+    });
+  });
+  const cnt={};PLAN.forEach(s=>{if(s.sub!=null)cnt[s.sub]=(cnt[s.sub]||0)+1});
+  const ids=Object.keys(cnt).map(Number).sort((a,b)=>cnt[b]-cnt[a]);
+  if(ids.length){t+=`\n${L}\n📊 *ملخص معلمي الاحتياط:*\n`+ids.map(id=>`• ${T[id].name}: ${cnt[id]===1?'حصة واحدة':cnt[id]===2?'حصتان':ar(cnt[id])+' حصص'}`).join('\n')+'\n'}
+  const un=PLAN.filter(s=>s.sub==null).length;
+  if(un)t+=`\n⚠️ حصص بدون احتياط: ${ar(un)}\n`;
+  t+=`${L}\nإدارة المدرسة — مدير المدرسة: خميس العيسائي`;
+  return t;
 }
 function savePlan(){
   const date=$('#subDate').value;
@@ -425,9 +451,8 @@ function renderLog(){
   $('#logList').innerHTML=ids.length?ids.map(id=>`<div class="item" style="cursor:default"><span class="av">${esc(initials(T[id].name))}</span><span class="t"><div>${esc(T[id].name)}</div><small>هذا الأسبوع: ${ar(cw[id]||0)}</small></span><span class="tag gold">${ar(cnt[id])} احتياط</span></div>`).join(''):'<div class="empty">لا يوجد سجل بعد</div>';
 }
 function share(text){
-  if(window.Android&&Android.share){Android.share(text);return}
-  if(navigator.share){navigator.share({text}).catch(()=>{});return}
-  window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+  if(window.Android&&Android.whatsapp){Android.whatsapp(text);return}
+  window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(text),'_blank');
 }
 function copy(text){
   if(window.Android&&Android.copy){Android.copy(text);toast('تم النسخ');return}

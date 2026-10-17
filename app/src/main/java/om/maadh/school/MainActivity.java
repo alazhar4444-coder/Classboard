@@ -61,6 +61,20 @@ public class MainActivity extends Activity {
             i.putExtra(Intent.EXTRA_TEXT, text);
             startActivity(Intent.createChooser(i, "مشاركة"));
         }
+        @JavascriptInterface public void whatsapp(String text) {
+            String[] pkgs = {"com.whatsapp", "com.whatsapp.w4b"};
+            for (String pkg : pkgs) {
+                try {
+                    Intent i = new Intent(Intent.ACTION_SEND);
+                    i.setType("text/plain");
+                    i.setPackage(pkg);
+                    i.putExtra(Intent.EXTRA_TEXT, text);
+                    startActivity(i);
+                    return;
+                } catch (Exception ignored) {}
+            }
+            share(text);
+        }
         @JavascriptInterface public void copy(String text) {
             ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             cm.setPrimaryClip(ClipData.newPlainText("maadh", text));
