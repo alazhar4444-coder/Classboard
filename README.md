@@ -12,6 +12,6 @@
 - رابط مباشر لمنصة نور
 
 ## تنزيل التطبيق
-ملف `maadh-school.apk` يُبنى تلقائياً عبر GitHub Actions ويظهر في قسم **Releases**.
+ملف `maadh-school.apk` يُبنى تلقائياً عبر GitHub Actions من الفرع `maadh-school-app` ويظهر في قسم **Releases**.
 
 صفحة الويب: `index.html`

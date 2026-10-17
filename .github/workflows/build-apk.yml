@@ -1,7 +1,7 @@
 name: Build APK
 on:
   push:
-    branches: [main]
+    branches: [maadh-school-app]
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,6 +24,7 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
+          tag_name: maadh-v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           name: مدرسة معاذ v1.0.${{ github.run_number }}
           files: maadh-school.apk
