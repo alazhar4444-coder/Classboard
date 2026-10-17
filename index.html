@@ -401,13 +401,12 @@ function renderPlan(){
     <div class="meta"><bdi>الصف ${clsHTML(s.c)}</bdi> — <bdi>${esc(s.s)}</bdi> — <span class="cls">${TIMES[s.p-1]}–${TIMES_END[s.p-1]}</span></div>
     <select data-i="${i}" style="margin-top:6px">${opts.join('')}</select></div></div>`;
   });
-  h+=`<div class="row noprint" style="margin-top:12px"><button class="btn" id="btnSave">اعتماد وحفظ</button><a class="btn" id="btnShare" href="#" target="_blank" rel="noopener" style="background:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.6 2.1 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.4z"/></svg>إرسال عبر واتساب</a><button class="btn ghost" id="btnCopy">نسخ الرسالة</button><button class="btn ghost" onclick="printPage()">طباعة</button></div>`;
-  h+=`<details class="noprint" style="margin-top:12px"><summary class="muted" style="cursor:pointer">معاينة رسالة واتساب</summary><pre id="waPrev" style="white-space:pre-wrap;font-family:inherit;background:var(--green-l);border-radius:12px;padding:12px;margin:8px 0 0;font-size:14px;line-height:1.8"></pre></details>`;
+  h+=`<div class="row noprint" style="margin-top:12px"><button class="btn" id="btnSave">اعتماد وحفظ</button><button class="btn" id="btnShare" style="background:#25D366;display:inline-flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.6 2.1 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.4z"/></svg>إرسال الجدول عبر واتساب</button><button class="btn ghost" id="btnDl">تنزيل الصورة</button><button class="btn ghost" onclick="printPage()">طباعة</button></div>`;
+  h+=`<details class="noprint" style="margin-top:12px" id="prevBox"><summary class="muted" style="cursor:pointer">معاينة الجدول الذي سيُرسل</summary><img id="waPrev" alt="جدول الاحتياط" style="width:100%;margin-top:8px;border-radius:12px;border:1px solid var(--line)"></details>`;
   box.innerHTML=h;
-  const txt=planText();$('#waPrev').textContent=txt;
-  $('#btnShare').href='https://api.whatsapp.com/send?text='+encodeURIComponent(txt);
   box.querySelectorAll('select').forEach(sel=>sel.onchange=()=>{PLAN[+sel.dataset.i].sub=sel.value===''?null:+sel.value;renderPlan()});
-  $('#btnSave').onclick=savePlan;$('#btnShare').onclick=e=>{if(window.Android&&Android.whatsapp){e.preventDefault();Android.whatsapp(planText())}};$('#btnCopy').onclick=()=>copy(planText());
+  $('#prevBox').ontoggle=async()=>{if($('#prevBox').open)$('#waPrev').src=(await planCanvas()).toDataURL('image/png')};
+  $('#btnSave').onclick=savePlan;$('#btnShare').onclick=shareImage;$('#btnDl').onclick=downloadImage;
 }
 function clsWords(c){
   const parts=splitCls(c);const g=clsGrade(parts[0]);
@@ -438,6 +437,96 @@ function planText(){
   t+=`${L}\nإدارة المدرسة — مدير المدرسة: خميس العيسائي`;
   return t;
 }
+
+/* ---- substitution table as image ---- */
+const LOGO_IMG=new Image();LOGO_IMG.src=document.querySelector('header img').src;
+function rr(x,c,X,Y,W,H,R){x.beginPath();x.moveTo(X+R,Y);x.arcTo(X+W,Y,X+W,Y+H,R);x.arcTo(X+W,Y+H,X,Y+H,R);x.arcTo(X,Y+H,X,Y,R);x.arcTo(X,Y,X+W,Y,R);x.closePath();if(c){x.fillStyle=c;x.fill()}}
+function fitText(x,t,maxW,size,weight){let s=size;do{x.font=`${weight} ${s}px Thmanyah, sans-serif`;s--}while(x.measureText(t).width>maxW&&s>14);return t}
+async function planCanvas(){
+  try{await document.fonts.load('700 30px Thmanyah');await document.fonts.load('400 30px Thmanyah')}catch(e){}
+  if(!LOGO_IMG.complete)await new Promise(r=>{LOGO_IMG.onload=r;LOGO_IMG.onerror=r});
+  const d=subDay();const date=$('#subDate').value;
+  const dateTxt=new Date(date+'T12:00:00').toLocaleDateString('ar-OM',{year:'numeric',month:'long',day:'numeric'});
+  const rows=[...PLAN].sort((a,b)=>a.p-b.p);
+  const W=1240,P=48,HEAD=250,TH=78,RH=92,SUMH=120,FOOT=90;
+  const absIds=[...new Set(PLAN.map(s=>s.absent))];
+  const H=HEAD+70+TH+rows.length*RH+40+SUMH+FOOT;
+  const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  x.direction='rtl';x.textBaseline='middle';
+  const G='#2f8a45',GD='#1f6431',GL='#e8f4eb',GOLD='#c9a33a',GOLDL='#fbf3dc',INK='#1d2a21',MUT='#6b776e',LINE='#d9e3db';
+  x.fillStyle='#f5f7f4';x.fillRect(0,0,W,H);
+  // header band
+  x.fillStyle=GD;x.fillRect(0,0,W,HEAD);
+  x.fillStyle=G;x.beginPath();x.arc(140,-40,260,0,Math.PI*2);x.fill();
+  x.fillStyle=GOLD;x.fillRect(0,HEAD-8,W,8);
+  rr(x,'#fff',W-P-170,40,170,170,28);x.drawImage(LOGO_IMG,W-P-162,48,154,154);
+  x.textAlign='right';x.fillStyle='#fff';
+  x.font='700 52px Thmanyah, sans-serif';x.fillText('جدول حصص الاحتياط',W-P-200,88);
+  x.font='400 30px Thmanyah, sans-serif';x.fillStyle='#d9f0de';x.fillText('مدرسة معاذ بن جبل للتعليم الأساسي (٥ – ١٢)',W-P-200,145);
+  rr(x,GOLDL,W-P-200-420,172,420,52,26);x.fillStyle=INK;x.font='700 26px Thmanyah, sans-serif';x.textAlign='center';
+  x.fillText(`يوم ${DAYS[d]}   ${dateTxt}`,W-P-200-210,199);
+  // absent strip
+  let y=HEAD+24;x.textAlign='right';x.font='700 26px Thmanyah, sans-serif';x.fillStyle='#c0392b';
+  const absTxt='الغائبون: '+absIds.map(id=>T[id].name).join('  ،  ');
+  fitText(x,absTxt,W-2*P,26,700);x.fillText(absTxt,W-P,y+12);y+=46;
+  // table
+  const cols=[{t:'الحصة',w:120},{t:'الوقت',w:150},{t:'الصف',w:190},{t:'المادة',w:200},{t:'المعلم الغائب',w:220},{t:'معلم الاحتياط',w:264}];
+  const TW=cols.reduce((a,b)=>a+b.w,0);const X0=W-P;
+  rr(x,'#fff',P,y,TW,TH+rows.length*RH,22);
+  x.save();rr(x,null,P,y,TW,TH+rows.length*RH,22);x.clip();
+  x.fillStyle=G;x.fillRect(P,y,TW,TH);
+  let cx=X0;x.font='700 26px Thmanyah, sans-serif';x.fillStyle='#fff';x.textAlign='center';
+  cols.forEach(col=>{x.fillText(col.t,cx-col.w/2,y+TH/2);cx-=col.w});
+  let ry=y+TH;let prevP=null,band=0;
+  rows.forEach((s,i)=>{
+    if(s.p!==prevP){band^=1;prevP=s.p}
+    x.fillStyle=band?'#ffffff':'#f3f8f4';x.fillRect(P,ry,TW,RH);
+    x.fillStyle=LINE;x.fillRect(P,ry,TW,1.5);
+    const cells=[null,`${TIMES[s.p-1]} - ${TIMES_END[s.p-1]}`,clsWordsShort(s.c),s.s,T[s.absent].name,s.sub!=null?T[s.sub].name:'لم يُحدد'];
+    cx=X0;
+    cols.forEach((col,j)=>{
+      const mx=cx-col.w/2,my=ry+RH/2;
+      if(j===0){rr(x,G,mx-28,my-28,56,56,16);x.fillStyle='#fff';x.font='700 30px Thmanyah, sans-serif';x.fillText(ar(s.p),mx,my+2)}
+      else if(j===5){
+        rr(x,s.sub!=null?GOLDL:'#fdecea',cx-col.w+10,ry+14,col.w-20,RH-28,14);
+        x.fillStyle=s.sub!=null?INK:'#c0392b';const nm=shortName(cells[j]);fitText(x,nm,col.w-36,25,700);x.fillText(nm,mx,my+2);
+      }else{
+        x.fillStyle=j===4?MUT:INK;const t=j===4?shortName(cells[j]):cells[j];
+        fitText(x,t,col.w-20,j===1?22:24,j===2?700:400);x.fillText(t,mx,my+2);
+      }
+      cx-=col.w;
+      if(j<cols.length-1){x.fillStyle=LINE;x.fillRect(cx,ry,1.5,RH)}
+    });
+    ry+=RH;
+  });
+  x.restore();
+  y=ry+40;
+  // summary chips
+  const cnt={};PLAN.forEach(s=>{if(s.sub!=null)cnt[s.sub]=(cnt[s.sub]||0)+1});
+  const ids=Object.keys(cnt).map(Number).sort((a,b)=>cnt[b]-cnt[a]);
+  x.textAlign='right';x.fillStyle=GD;x.font='700 26px Thmanyah, sans-serif';
+  x.fillText(`عدد الحصص: ${ar(PLAN.length)}   ·   معلمو الاحتياط: ${ar(ids.length)}${PLAN.some(s=>s.sub==null)?'   ·   بدون احتياط: '+ar(PLAN.filter(s=>s.sub==null).length):''}`,W-P,y+10);
+  let chx=W-P;let chy=y+48;x.font='400 22px Thmanyah, sans-serif';
+  ids.forEach(id=>{const t=`${shortName(T[id].name)} (${ar(cnt[id])})`;const w=x.measureText(t).width+32;if(chx-w<P){return}rr(x,GL,chx-w,chy-20,w,40,20);x.fillStyle=GD;x.textAlign='center';x.fillText(t,chx-w/2,chy+1);chx-=w+10});
+  // footer
+  x.fillStyle=GD;x.fillRect(0,H-FOOT+20,W,FOOT-20);
+  x.fillStyle='#fff';x.font='400 22px Thmanyah, sans-serif';x.textAlign='right';x.fillText('مدير المدرسة: خميس العيسائي',W-P,H-FOOT/2+10);
+  x.textAlign='left';x.fillStyle='#cfe8d5';x.fillText('برنامج مدرسة معاذ · تصميم الأزهر الناعبي',P,H-FOOT/2+10);
+  return c;
+}
+function shortName(n){const p=n.trim().split(/\s+/);return p.length>3?p[0]+' '+p[1]+' '+p[p.length-1]:n}
+function clsWordsShort(c){const parts=splitCls(c);return `${ar(clsGrade(parts[0]))} / ${parts.map(x=>ar(clsSec(x))).join(' و')}`}
+const blobOf=c=>new Promise(r=>c.toBlob(r,'image/png'));
+async function shareImage(){
+  const c=await planCanvas();const name=`احتياط-${$('#subDate').value}.png`;
+  if(window.Android&&Android.shareImage){Android.shareImage(c.toDataURL('image/png').split(',')[1]);return}
+  const blob=await blobOf(c);const file=new File([blob],name,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'جدول الاحتياط'});return}catch(e){if(e.name==='AbortError')return}}
+  downloadBlob(blob,name);toast('تم تنزيل الصورة — أرفقها في واتساب');
+  $('#prevBox').open=true;
+}
+async function downloadImage(){const c=await planCanvas();downloadBlob(await blobOf(c),`احتياط-${$('#subDate').value}.png`);toast('تم تنزيل الصورة')}
+function downloadBlob(b,name){if(window.Android&&Android.shareImage){return}const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
 function savePlan(){
   const date=$('#subDate').value;
   LOG=LOG.filter(e=>!(e.date===date&&PLAN.some(s=>s.p===e.p&&s.absent===e.absent)));

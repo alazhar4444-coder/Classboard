@@ -6,6 +6,10 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
@@ -60,6 +64,27 @@ public class MainActivity extends Activity {
             i.setType("text/plain");
             i.putExtra(Intent.EXTRA_TEXT, text);
             startActivity(Intent.createChooser(i, "مشاركة"));
+        }
+        @JavascriptInterface public void shareImage(String b64) {
+            try {
+                File dir = new File(getCacheDir(), "shared");
+                dir.mkdirs();
+                File f = new File(dir, "ehtiyat.png");
+                FileOutputStream out = new FileOutputStream(f);
+                out.write(Base64.decode(b64, Base64.DEFAULT));
+                out.close();
+                Uri uri = FileProvider.getUriForFile(MainActivity.this, "om.maadh.school.files", f);
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("image/png");
+                i.putExtra(Intent.EXTRA_STREAM, uri);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                String[] pkgs = {"com.whatsapp", "com.whatsapp.w4b"};
+                for (String pkg : pkgs) {
+                    try { i.setPackage(pkg); startActivity(i); return; } catch (Exception ignored) {}
+                }
+                i.setPackage(null);
+                startActivity(Intent.createChooser(i, "إرسال جدول الاحتياط"));
+            } catch (Exception e) { e.printStackTrace(); }
         }
         @JavascriptInterface public void whatsapp(String text) {
             String[] pkgs = {"com.whatsapp", "com.whatsapp.w4b"};
