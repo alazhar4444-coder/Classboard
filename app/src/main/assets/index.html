@@ -173,10 +173,33 @@ td.tot{font-size:16px}
 .x:hover{color:var(--red);background:var(--red-l)}
 .x svg{width:18px;height:18px}
 /* timetable */
-.tt td{padding:4px}
-.tt td input{width:100%;min-width:90px;border:1px dashed var(--line);border-radius:8px;padding:8px 6px;text-align:center;background:transparent}
-.tt td input:not(:placeholder-shown){background:var(--green-l);border-style:solid;color:var(--green-d)}
-.tt th.day{background:var(--green)}
+.tt{table-layout:fixed;min-width:820px}
+.tt td{padding:5px;height:78px;vertical-align:middle}
+.tt th.day{background:var(--green);width:92px;font-size:15px}
+.tt th small{direction:ltr;unicode-bidi:isolate}
+.tt th.curp{background:var(--gold)}
+.tt tr.today th.day{background:var(--gold)}
+.tt tr.today td{background:var(--gold-l)}
+.les{border-radius:12px;height:100%;min-height:66px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;padding:6px 4px;color:#fff;background:var(--lc);box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:pointer;transition:.15s}
+.les:hover{transform:translateY(-2px)}
+.les b{font-weight:400;font-size:14px;line-height:1.25}
+.les span{background:rgba(255,255,255,.22);border-radius:999px;padding:0 10px;font-size:13px;direction:ltr;unicode-bidi:isolate}
+.les.now{outline:3px solid var(--gold);outline-offset:2px}
+.tt input{width:100%;border:1px solid var(--line);border-radius:8px;padding:4px;text-align:center;font-size:13px;background:var(--paper)}
+.tt input+input{margin-top:4px}
+.tt th input{background:rgba(255,255,255,.9);color:#000;font-size:11px;padding:2px}
+.ttleg{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:13px}
+.ttleg span{display:inline-flex;align-items:center;gap:6px}
+.ttleg i{width:14px;height:14px;border-radius:4px;background:var(--lc)}
+.today-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.tl{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--paper);border-inline-start:5px solid var(--lc);cursor:pointer;position:relative}
+.tl small{color:var(--muted);display:block;font-size:12px}
+.tl b{font-weight:400;font-size:15px;color:var(--lc)}
+.tl .cl{float:left;direction:ltr;background:var(--cream);border-radius:999px;padding:0 8px;font-size:13px}
+.tl.now{box-shadow:0 0 0 3px var(--gold-l);border-color:var(--gold)}
+.tl.past{opacity:.55}
+.tl .bd{position:absolute;top:-9px;left:10px;background:var(--gold);color:#fff;font-size:11px;padding:0 8px;border-radius:999px}
+@media print{.les{box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tt tr.today td,.tt tr.today th{background:inherit}.les.now{outline:0}}
 .empty{padding:30px;text-align:center;color:var(--muted)}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--paper);padding:10px 20px;border-radius:12px;z-index:99;transition:.3s;box-shadow:var(--shadow);opacity:0;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -239,6 +262,10 @@ footer b{font-weight:400;color:var(--red)}
     </div>
     <div class="people" id="people"></div>
     <div class="stats" id="stats"></div>
+    <div class="card">
+      <div class="ph"><div class="t"><h2>حصص اليوم</h2><p id="todaySub"></p></div><div class="tools"><button class="btn" data-go2="tt">الجدول كاملًا</button></div></div>
+      <div class="today-list" id="todayList"></div>
+    </div>
     <div class="card">
       <div class="ph"><div class="t"><h2>ما يُدرَّس هذا الأسبوع</h2><p id="nowDate"></p></div></div>
       <div class="nowgrid" id="nowGrid"></div>
@@ -353,9 +380,10 @@ footer b{font-weight:400;color:var(--red)}
   <section class="panel" id="p-tt">
     <div class="card">
       <div class="print-head" data-ph></div>
-      <div class="ph"><div class="t"><h2>الجدول المدرسي الأسبوعي</h2><p>اكتب الشعبة أو المادة في الحصة — يُحفظ تلقائيًا.</p></div>
-        <div class="tools"><button class="btn" data-print>طباعة</button></div></div>
+      <div class="ph"><div class="t"><h2>الجدول المدرسي الأسبوعي</h2><p id="ttSub"></p></div>
+        <div class="tools"><button class="btn" id="ttEdit">تعديل الجدول</button><button class="btn" data-print>طباعة</button></div></div>
       <div class="tw"><table class="tt" id="ttTable"></table></div>
+      <div class="ttleg" id="ttLeg"></div>
       <div class="print-sign" data-ps></div>
     </div>
   </section>
@@ -580,7 +608,7 @@ R.home=()=>{
   const tot=S.classes.reduce((a,c)=>a+c.students.length,0);
   const pct=k=>{const all=PLANS[k].units.flatMap(u=>u.w);return Math.round(all.filter(w=>S.plan[k][w[0]]?.done).length/all.length*100)};
   const notes=S.notes.length;
-  $('#stats').innerHTML=[[S.classes.length,'شُعب ومجموعات'],[tot,'طالبًا في السجل'],[pct('env')+'%','إنجاز خطة العلوم البيئية'],[pct('bio')+'%','إنجاز خطة الأحياء'],[notes,'ملاحظة متابعة']].map(s=>`<div class="stat"><b>${s[0]}</b><small>${s[1]}</small></div>`).join('');
+  $('#stats').innerHTML=[[S.classes.length,'شُعب دراسية'],[tot,'طالبًا في السجل'],[pct('env')+'%','إنجاز خطة العلوم البيئية'],[pct('bio')+'%','إنجاز خطة الأحياء'],[notes,'ملاحظة متابعة']].map(s=>`<div class="stat"><b>${s[0]}</b><small>${s[1]}</small></div>`).join('');
   const d=new Date();
   $('#nowDate').textContent=d.toLocaleDateString('ar-OM',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+(CW?` — الأسبوع ${WN[CW]}`:'');
   $('#nowGrid').innerHTML=['env','bio'].map(k=>{
@@ -589,6 +617,7 @@ R.home=()=>{
     if(!w)return `<div class="now"><div class="h"><b>${P.title}</b></div><div class="muted">لا يوجد أسبوع دراسي مطابق لتاريخ اليوم في الخطة.</div></div>`;
     return `<div class="now" style="border-color:${u.c};background:${u.l}"><div class="h"><b style="color:${u.c}">${P.title}</b><span class="pill">الوحدة ${u.n}</span></div><div class="muted" style="font-size:13px">الأسبوع ${WN[w[0]]} · ${w[2]}</div><ul>${w[3].map(t=>`<li>${t}</li>`).join('')}</ul></div>`;
   }).join('');
+  renderToday();
   $('#quick').innerHTML=TABS.slice(1).map(([k,l])=>`<button data-go="${k}">${svg(k)}<span>${l}</span></button>`).join('');
 };
 $('#quick').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.dataset.go)});
@@ -731,11 +760,48 @@ $('#nList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');
 
 /* ---- TIMETABLE ---- */
 const DAYS=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس'];
+const TT_SEED={'0-0':['العلوم','6/1'],'0-1':['العلوم البيئية','11/3'],'0-4':['الأحياء','11/1'],'0-7':['العلوم البيئية','11/2'],
+ '1-1':['الأحياء','11/1'],'1-2':['العلوم','6/1'],'1-5':['العلوم البيئية','11/2'],'1-6':['العلوم البيئية','11/3'],
+ '2-1':['العلوم البيئية','11/2'],'2-3':['الأحياء','11/1'],'2-4':['العلوم','6/1'],'2-6':['العلوم البيئية','11/3'],
+ '3-1':['الأحياء','11/1'],'3-2':['العلوم','6/1'],'3-4':['العلوم البيئية','11/2'],'3-6':['العلوم البيئية','11/3'],
+ '4-0':['العلوم','6/1'],'4-3':['العلوم البيئية','11/2'],'4-4':['الأحياء','11/1'],'4-7':['العلوم البيئية','11/3']};
+const TT_TIMES=['8:00 - 8:45','9:00 - 9:45','10:00 - 10:45','11:00 - 11:45','12:00 - 12:45','13:00 - 13:45','14:00 - 14:45','15:00 - 15:45'];
+const subjColor=x=>/أحياء|احياء/.test(x)?'#A3161E':/بيئ/.test(x)?'#0F6B3A':/علوم/.test(x)?'#3D6FD8':'#C49A3A';
+function ttCell(k){const v=S.tt[k];if(!v)return null;if(typeof v==='string')return v.trim()?{s:v,c:''}:null;return (v.s||v.c)?v:null}
+function nowInfo(){
+  const d=new Date();const di=d.getDay();const mins=d.getHours()*60+d.getMinutes();
+  const pm=t=>{const m=String(t).match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!m)return null;let a=+m[1]*60+ +m[2],b=+m[3]*60+ +m[4];if(a<7*60)a+=720;if(b<7*60)b+=720;return [a,b]};
+  let cur=-1,next=-1;S.ttTimes.forEach((t,p)=>{const r=pm(t);if(!r)return;if(mins>=r[0]&&mins<=r[1])cur=p;else if(mins<r[0]&&next<0)next=p});
+  return {di:di<=4?di:-1,cur,next,mins,pm};
+}
+function classIdByName(n){const c=S.classes.find(c=>c.name.replace(/\s/g,'')===String(n).replace(/\s/g,''));return c&&c.id}
+let ttEditing=false;
 R.tt=()=>{
-  const P=8;
-  $('#ttTable').innerHTML=`<thead><tr><th>اليوم / الحصة</th>${Array.from({length:P},(_,i)=>`<th>${i+1}</th>`).join('')}</tr></thead><tbody>${DAYS.map((d,di)=>`<tr><th class="day">${d}</th>${Array.from({length:P},(_,p)=>`<td><input data-k="${di}-${p}" value="${esc(S.tt[di+'-'+p]||'')}" placeholder=" "></td>`).join('')}</tr>`).join('')}</tbody>`;
+  const P=8;const N=nowInfo();
+  $('#ttSub').textContent=`${S.settings.teacher} · ${Object.keys(S.tt).filter(k=>ttCell(k)).length} حصة أسبوعيًا`;
+  $('#ttEdit').textContent=ttEditing?'إنهاء التعديل':'تعديل الجدول';$('#ttEdit').classList.toggle('p',ttEditing);
+  $('#ttTable').innerHTML=`<thead><tr><th class="day">اليوم / الحصة</th>${Array.from({length:P},(_,i)=>`<th class="${N.di>=0&&N.cur===i?'curp':''}">${i+1}${ttEditing?`<input data-time="${i}" value="${esc(S.ttTimes[i]||'')}">`:`<small>${esc(S.ttTimes[i]||'')}</small>`}</th>`).join('')}</tr></thead><tbody>${DAYS.map((d,di)=>`<tr class="${di===N.di?'today':''}"><th class="day">${d}</th>${Array.from({length:P},(_,p)=>{const k=di+'-'+p;const v=ttCell(k);
+    if(ttEditing)return `<td><input data-k="${k}" data-part="s" value="${esc(v?.s||'')}" placeholder="المادة"><input data-k="${k}" data-part="c" value="${esc(v?.c||'')}" placeholder="الصف"></td>`;
+    return `<td>${v?`<div class="les ${di===N.di&&p===N.cur?'now':''}" style="--lc:${subjColor(v.s)}" data-cls="${esc(v.c)}"><b>${esc(v.s)}</b>${v.c?`<span>${esc(v.c)}</span>`:''}</div>`:''}</td>`}).join('')}</tr>`).join('')}</tbody>`;
+  const subs=[...new Set(Object.keys(S.tt).map(ttCell).filter(Boolean).map(v=>v.s))];
+  $('#ttLeg').innerHTML=subs.map(x=>{const n=Object.keys(S.tt).map(ttCell).filter(v=>v&&v.s===x).length;return `<span style="--lc:${subjColor(x)}"><i></i>${esc(x)} (${n} حصص)</span>`}).join('')+(ttEditing?'':'<span class="muted noprint">اضغط على الحصة لفتح سجل درجات الصف</span>');
 };
-$('#ttTable').addEventListener('input',e=>{const i=e.target.closest('[data-k]');if(i){S.tt[i.dataset.k]=i.value;save()}});
+$('#ttEdit').addEventListener('click',()=>{ttEditing=!ttEditing;R.tt()});
+$('#ttTable').addEventListener('input',e=>{
+  const t=e.target.closest('[data-time]');if(t){S.ttTimes[+t.dataset.time]=t.value;save();return}
+  const i=e.target.closest('[data-k]');if(!i)return;let v=ttCell(i.dataset.k)||{s:'',c:''};v={s:v.s,c:v.c};v[i.dataset.part]=i.value;
+  if(!v.s.trim()&&!v.c.trim())delete S.tt[i.dataset.k];else S.tt[i.dataset.k]=v;save()});
+function openClass(name){const id=classIdByName(name);if(id){S.ui.cls.grades=id;S.ui.cls.dialog=id;S.ui.cls.att=id;save();go('grades')}else toast(`الصف ${name} غير موجود في السجل — يمكن إضافته من الإعدادات`)}
+$('#ttTable').addEventListener('click',e=>{const l=e.target.closest('.les');if(l&&!ttEditing)openClass(l.dataset.cls)});
+function renderToday(){
+  const N=nowInfo();const d=new Date();
+  if(N.di<0){$('#todaySub').textContent='عطلة نهاية الأسبوع';$('#todayList').innerHTML='<div class="empty">لا توجد حصص اليوم.</div>';return}
+  const L=[];for(let p=0;p<8;p++){const v=ttCell(N.di+'-'+p);if(v)L.push([p,v])}
+  $('#todaySub').textContent=`${DAYS[N.di]} · ${L.length} حصص`;
+  $('#todayList').innerHTML=L.length?L.map(([p,v])=>{const r=N.pm(S.ttTimes[p]);const past=r&&N.mins>r[1];const now=p===N.cur;const nx=!now&&N.cur<0&&p===N.next;
+    return `<div class="tl ${now?'now':''} ${past?'past':''}" style="--lc:${subjColor(v.s)}" data-cls="${esc(v.c)}">${now?'<span class="bd">الآن</span>':nx?'<span class="bd">التالية</span>':''}<small>الحصة ${p+1} · <span style="direction:ltr;unicode-bidi:isolate">${esc(S.ttTimes[p]||'')}</span></small><span class="cl">${esc(v.c)}</span><b>${esc(v.s)}</b></div>`}).join(''):'<div class="empty">لا توجد حصص مسجلة لهذا اليوم.</div>';
+}
+document.addEventListener('click',e=>{const t=e.target.closest('.tl');if(t)openClass(t.dataset.cls);const g=e.target.closest('[data-go2]');if(g)go(g.dataset.go2)});
 
 /* ---- VISITS ---- */
 R.visits=()=>{
@@ -770,6 +836,8 @@ $('#bTheme').addEventListener('click',()=>{const dark=S.ui.theme?S.ui.theme==='d
 
 function migrate(){
   S.settings.designer=DESIGNER;
+  if(!S.ttTimes)S.ttTimes=TT_TIMES.slice();
+  if(!S.ttV){S.tt={};Object.entries(TT_SEED).forEach(([k,v])=>S.tt[k]={s:v[0],c:v[1]});S.ttV=2}
   const c1=S.classes.find(c=>c.id==='c111'),cb=S.classes.find(c=>c.id==='cbio');
   if(c1&&cb){
     if(!c1.students.length){c1.students=cb.students;c1.subject='الأحياء';
