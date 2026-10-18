@@ -93,10 +93,10 @@ public class MainActivity extends Activity {
         public void print() {
             runOnUiThread(() -> {
                 PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                PrintDocumentAdapter ad = web.createPrintDocumentAdapter("سجل المعلم المصاحب");
+                PrintDocumentAdapter ad = web.createPrintDocumentAdapter("السجل المصاحب للمعلم");
                 PrintAttributes attrs = new PrintAttributes.Builder()
                         .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape()).build();
-                pm.print("سجل المعلم المصاحب", ad, attrs);
+                pm.print("السجل المصاحب للمعلم", ad, attrs);
             });
         }
 
@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
                     v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/سجل المعلم");
                     Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                     try (OutputStream os = getContentResolver().openOutputStream(uri)) { os.write(bytes); }
-                    where = "التنزيلات/سجل المعلم";
+                    where = "التنزيلات/السجل المصاحب للمعلم";
                 } else {
                     File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                     File f = new File(dir, name);
