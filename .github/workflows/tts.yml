@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install edge-tts faster-whisper
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg && pip install edge-tts faster-whisper
       - name: Generate voice
         run: |
           mkdir -p out
