@@ -10,11 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pip install edge-tts gtts
+      - run: pip install edge-tts faster-whisper
       - name: Generate voice
         run: |
           mkdir -p out
           python3 gen.py || true
+          python3 stt.py || true
           ls -la out
       - name: Publish
         env:
