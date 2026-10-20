@@ -1,0 +1,30 @@
+name: Sijil voiceover
+on:
+  push:
+    branches: [ sijil-video ]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install edge-tts==7.0.2
+      - name: Generate voice
+        run: |
+          mkdir out
+          edge-tts --list-voices | grep -i "ar-OM" || true
+          python3 - <<'PY'
+          import json, subprocess
+          lines = json.load(open('lines.json', encoding='utf-8'))
+          for i, t in enumerate(lines, 1):
+              for v in ['ar-OM-AbdullahNeural', 'ar-OM-AyshaNeural']:
+                  subprocess.run(['edge-tts', '--voice', v, '--rate=+4%', '--text', t,
+                                  '--write-media', f'out/{v.split("-")[2][:4]}_{i:02d}.mp3'], check=True)
+          PY
+          ls -la out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "sijil-voice-${{ github.run_number }}" out/*.mp3 --target "${{ github.sha }}" --prerelease --title "Sijil voiceover ${{ github.run_number }}" --notes "voice files"
