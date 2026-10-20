@@ -1,7 +1,7 @@
 import json, subprocess
 lines = json.load(open('lines.json', encoding='utf-8'))
 log = open('out/log.txt', 'w')
-VOICES = ['ar-OM-AbdullahNeural','ar-AE-HamdanNeural','ar-QA-MoazNeural','ar-BH-AliNeural','ar-KW-FahedNeural','ar-SA-HamedNeural']
+VOICES = ['ar-SA-HamedNeural','ar-QA-MoazNeural','ar-KW-FahedNeural','ar-JO-TaimNeural']
 for v in VOICES:
     tag = v.split('-')[1]
     for i, t in enumerate(lines, 1):
