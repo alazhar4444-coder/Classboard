@@ -14,6 +14,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -41,6 +42,7 @@ public class MainActivity extends Activity {
                 return openExternal(Uri.parse(url));
             }
         });
+        web.setWebChromeClient(new WebChromeClient());
         web.getSettings().setSupportMultipleWindows(false);
         setContentView(web);
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
