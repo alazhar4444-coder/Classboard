@@ -85,6 +85,8 @@ table.tt td.now{outline:3px solid var(--gold);outline-offset:-3px}
 .pnum{width:42px;height:42px;border-radius:12px;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px}
 .subrow .meta{font-size:13px;color:var(--muted)}
 .empty{padding:24px;text-align:center;color:var(--muted)}
+.rules{margin-top:12px;background:var(--gold-l);border:1px solid var(--gold);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.9}
+.rules b{display:block;font-size:14px;margin-bottom:2px}
 .selbox{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
 .selbox label{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer}
 .selbox label:hover{background:var(--green-l)}
@@ -170,9 +172,12 @@ table.tt td.now{outline:3px solid var(--gold);outline-offset:-3px}
       <label class="muted">المعلمون الغائبون</label>
       <input type="search" id="absQ" placeholder="ابحث لتحديد الغائبين…" style="margin:6px 0">
       <div class="selbox" id="absBox"></div>
-      <div class="row" style="margin-top:10px">
-        <label class="muted" style="flex:1">الحد الأقصى لحصص المعلم في اليوم</label>
-        <select id="maxLoad" style="width:90px"><option>5</option><option selected>6</option><option>7</option><option>8</option></select>
+      <div class="rules">
+        <b>قواعد العدالة في التوزيع</b>
+        <div>• حصة احتياط واحدة فقط لكل معلم في اليوم</div>
+        <div>• النصاب ٢٠ حصة فأكثر: احتياط واحد في الأسبوع</div>
+        <div>• النصاب ١٥ – ١٩: احتياطان في الأسبوع</div>
+        <div>• النصاب ١٤ فأقل: ٣ احتياط في الأسبوع</div>
       </div>
       <div class="row" style="margin-top:12px">
         <button class="btn" id="btnDist" style="flex:1">توزيع تلقائي</button>
@@ -380,19 +385,32 @@ function renderAbsBox(){
   $('#absBox').querySelectorAll('input').forEach(i=>i.onchange=()=>{i.checked?ABS.add(+i.value):ABS.delete(+i.value)});
 }
 function updDayName(){const d=subDay();$('#subDayName').innerHTML=d>=0?`اليوم: <b>${DAYS[d]}</b>`:'<span style="color:var(--red)">التاريخ المحدد ليس يوم دوام (الأحد–الخميس)</span>';renderAbsBox()}
-function weekSubs(id,date){const wk=weekKey(new Date(date));return LOG.filter(e=>e.sub===id&&weekKey(new Date(e.date))===wk).length}
+/* ---- fairness rules ----
+   1) max one substitution per teacher per day
+   2) weekly quota by teaching load: >=20 -> 1, 15..19 -> 2, <=14 -> 3 */
+const weekLoad=t=>t.lessons.length;
+const quota=t=>{const n=weekLoad(t);return n>=20?1:n>=15?2:3};
+// LOG entries that the current plan will replace when saved
+const replacedByPlan=(e,date)=>e.date===date&&PLAN.some(s=>s.p===e.p&&s.absent===e.absent);
+function savedWeek(id,date){const wk=weekKey(new Date(date));return LOG.filter(e=>e.sub===id&&weekKey(new Date(e.date))===wk&&!replacedByPlan(e,date)).length}
+function savedDay(id,date){return LOG.filter(e=>e.sub===id&&e.date===date&&!replacedByPlan(e,date)).length}
 function candidates(slot,d,extra){
-  // extra: map teacherId -> assigned subs today in current plan
-  const maxL=+$('#maxLoad').value;const date=$('#subDate').value;
+  // extra: teacherId -> substitutions already given in the current plan (other slots)
+  const date=$('#subDate').value;
   const absT=T[slot.absent];
   return T.filter(t=>!ABS.has(t.id)&&!busy(t,d,slot.p)&&!PLAN.some(s=>s!==slot&&s.p===slot.p&&s.sub===t.id))
    .map(t=>{
-     const load=dayLoad(t,d)+(extra[t.id]||0);
+     const inPlan=extra[t.id]||0;
+     const day=savedDay(t.id,date)+inPlan;
+     const wk=savedWeek(t.id,date)+inPlan;
+     const q=quota(t);
+     const dayOver=day>=1, wkOver=wk>=q, over=dayOver||wkOver;
+     const load=dayLoad(t,d);
      const adj=(busy(t,d,slot.p-1)?1:0)+(busy(t,d,slot.p+1)?1:0);
      const same=t.subj===absT.subj;
-     const wk=weekSubs(t.id,date);
-     const score=load*10+wk*6+adj*3-(same?4:0);
-     return{t,load,adj,same,wk,score,over:load>=maxL};
+     // prefer: most remaining weekly quota, lighter day, not back-to-back, same subject
+     const score=-(q-wk)*20+load*6+adj*3-(same?4:0)+wk*2;
+     return{t,load,adj,same,wk,q,day,dayOver,wkOver,over,score};
    }).sort((a,b)=>(a.over-b.over)||(a.score-b.score));
 }
 function distribute(){
@@ -402,10 +420,17 @@ function distribute(){
   [...ABS].forEach(id=>T[id].lessons.filter(l=>l.d===d).forEach(l=>PLAN.push({absent:id,p:l.p,c:l.c,s:l.s,sub:null})));
   PLAN.sort((a,b)=>a.p-b.p);
   const extra={};
-  // assign hardest slots first (fewest candidates)
-  const order=[...PLAN].sort((a,b)=>candidates(a,d,extra).length-candidates(b,d,extra).length);
-  order.forEach(s=>{const c=candidates(s,d,extra).filter(x=>!x.over);if(c.length){s.sub=c[0].t.id;extra[s.sub]=(extra[s.sub]||0)+1}});
+  const elig=s=>candidates(s,d,extra).filter(x=>!x.over);
+  // greedy: always fill the slot with the fewest eligible teachers next
+  const left=[...PLAN];
+  while(left.length){
+    left.sort((a,b)=>elig(a).length-elig(b).length);
+    const s=left.shift();const c=elig(s);
+    if(c.length){s.sub=c[0].t.id;extra[s.sub]=(extra[s.sub]||0)+1}
+  }
   renderPlan();
+  const un=PLAN.filter(s=>s.sub==null).length;
+  if(un)toast(`${ar(un)} حصة بدون احتياط — لا يوجد معلم ضمن الحدود`);
 }
 function planExtra(except){const e={};PLAN.forEach(s=>{if(s!==except&&s.sub!=null)e[s.sub]=(e[s.sub]||0)+1});return e}
 function renderPlan(){
@@ -415,10 +440,10 @@ function renderPlan(){
   let h=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><div><h2 style="margin:0">جدول الاحتياط</h2><div class="muted"><bdi>${DAYS[d]} ${dateTxt}</bdi> — <bdi>${ar(PLAN.length)} حصة</bdi> — <bdi>${ar(ABS.size)} غائب</bdi></div></div></div>`;
   PLAN.forEach((s,i)=>{
     const c=candidates(s,d,planExtra(s));
-    const opts=['<option value="">— بدون —</option>'].concat(c.map(x=>`<option value="${x.t.id}" ${x.t.id===s.sub?'selected':''}>${esc(x.t.name)} (${ar(x.load)} حصص${x.same?'، نفس المادة':''}${x.over?'، تجاوز الحد':''})</option>`));
+    const opts=['<option value="">— بدون —</option>'].concat(c.map(x=>`<option value="${x.t.id}" ${x.t.id===s.sub?'selected':''}>${x.over?'⚠ ':''}${esc(x.t.name)} (احتياط الأسبوع ${ar(x.wk)}/${ar(x.q)} · ${ar(x.load)} حصص اليوم${x.same?' · نفس المادة':''}${x.dayOver?' · له احتياط اليوم':x.wkOver?' · استنفد حصته الأسبوعية':''})</option>`));
     h+=`<div class="subrow"><div class="pnum">${ar(s.p)}</div><div><div><b>${esc(T[s.absent].name)}</b> <span class="tag red">غائب</span></div>
     <div class="meta"><bdi>الصف ${clsHTML(s.c)}</bdi> — <bdi>${esc(s.s)}</bdi> — <span class="cls">${TIMES[s.p-1]}–${TIMES_END[s.p-1]}</span></div>
-    <select data-i="${i}" style="margin-top:6px">${opts.join('')}</select></div></div>`;
+    <select data-i="${i}" style="margin-top:6px">${opts.join('')}</select>${(()=>{const x=c.find(x=>x.t.id===s.sub);return x?`<div class="meta" style="margin-top:4px">${x.over?'<span style="color:var(--red)">⚠ تجاوز القاعدة — </span>':''}احتياط الأسبوع: ${ar(x.wk+1)} من ${ar(x.q)} · النصاب ${ar(weekLoad(x.t))} حصة</div>`:''})()}</div></div>`;
   });
   h+=`<div class="row noprint" style="margin-top:12px"><button class="btn" id="btnSave">اعتماد وحفظ</button><button class="btn" id="btnShare" style="background:#25D366;display:inline-flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.6 2.1 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.4z"/></svg>إرسال الجدول عبر واتساب</button><button class="btn ghost" id="btnDl">تنزيل الصورة</button><button class="btn ghost" onclick="printPage()">طباعة</button></div>`;
   h+=`<details class="noprint" style="margin-top:12px" id="prevBox"><summary class="muted" style="cursor:pointer">معاينة الجدول الذي سيُرسل</summary><img id="waPrev" alt="جدول الاحتياط" style="width:100%;margin-top:8px;border-radius:12px;border:1px solid var(--line)"></details>`;
@@ -556,7 +581,7 @@ function renderLog(){
   const cnt={};const wk=weekKey(new Date());const cw={};
   LOG.forEach(e=>{cnt[e.sub]=(cnt[e.sub]||0)+1;if(weekKey(new Date(e.date))===wk)cw[e.sub]=(cw[e.sub]||0)+1});
   const ids=Object.keys(cnt).map(Number).sort((a,b)=>cnt[b]-cnt[a]);
-  $('#logList').innerHTML=ids.length?ids.map(id=>`<div class="item" style="cursor:default"><span class="av">${esc(initials(T[id].name))}</span><span class="t"><div>${esc(T[id].name)}</div><small>هذا الأسبوع: ${ar(cw[id]||0)}</small></span><span class="tag gold">${ar(cnt[id])} احتياط</span></div>`).join(''):'<div class="empty">لا يوجد سجل بعد</div>';
+  $('#logList').innerHTML=ids.length?ids.map(id=>`<div class="item" style="cursor:default"><span class="av">${esc(initials(T[id].name))}</span><span class="t"><div>${esc(T[id].name)}</div><small>هذا الأسبوع: ${ar(cw[id]||0)} من ${ar(quota(T[id]))} · النصاب ${ar(weekLoad(T[id]))}</small></span><span class="tag gold">${ar(cnt[id])} احتياط</span></div>`).join(''):'<div class="empty">لا يوجد سجل بعد</div>';
 }
 function share(text){
   if(window.Android&&Android.whatsapp){Android.whatsapp(text);return}
