@@ -175,7 +175,8 @@ table.tt td.now{outline:3px solid var(--gold);outline-offset:-3px}
       <div class="rules">
         <b>قواعد العدالة في التوزيع</b>
         <div>• حصة احتياط واحدة فقط لكل معلم في اليوم</div>
-        <div>• النصاب ٢٠ حصة فأكثر: احتياط واحد في الأسبوع</div>
+        <div>• النصاب ٢٣ حصة فأكثر: لا يُعطى احتياط</div>
+        <div>• النصاب ٢٠ – ٢٢: احتياط واحد في الأسبوع</div>
         <div>• النصاب ١٥ – ١٩: احتياطان في الأسبوع</div>
         <div>• النصاب ١٤ فأقل: ٣ احتياط في الأسبوع</div>
       </div>
@@ -387,9 +388,9 @@ function renderAbsBox(){
 function updDayName(){const d=subDay();$('#subDayName').innerHTML=d>=0?`اليوم: <b>${DAYS[d]}</b>`:'<span style="color:var(--red)">التاريخ المحدد ليس يوم دوام (الأحد–الخميس)</span>';renderAbsBox()}
 /* ---- fairness rules ----
    1) max one substitution per teacher per day
-   2) weekly quota by teaching load: >=20 -> 1, 15..19 -> 2, <=14 -> 3 */
+   2) weekly quota by teaching load: >=23 -> 0, 20..22 -> 1, 15..19 -> 2, <=14 -> 3 */
 const weekLoad=t=>t.lessons.length;
-const quota=t=>{const n=weekLoad(t);return n>=20?1:n>=15?2:3};
+const quota=t=>{const n=weekLoad(t);return n>=23?0:n>=20?1:n>=15?2:3};
 // LOG entries that the current plan will replace when saved
 const replacedByPlan=(e,date)=>e.date===date&&PLAN.some(s=>s.p===e.p&&s.absent===e.absent);
 function savedWeek(id,date){const wk=weekKey(new Date(date));return LOG.filter(e=>e.sub===id&&weekKey(new Date(e.date))===wk&&!replacedByPlan(e,date)).length}
@@ -440,7 +441,7 @@ function renderPlan(){
   let h=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><div><h2 style="margin:0">جدول الاحتياط</h2><div class="muted"><bdi>${DAYS[d]} ${dateTxt}</bdi> — <bdi>${ar(PLAN.length)} حصة</bdi> — <bdi>${ar(ABS.size)} غائب</bdi></div></div></div>`;
   PLAN.forEach((s,i)=>{
     const c=candidates(s,d,planExtra(s));
-    const opts=['<option value="">— بدون —</option>'].concat(c.map(x=>`<option value="${x.t.id}" ${x.t.id===s.sub?'selected':''}>${x.over?'⚠ ':''}${esc(x.t.name)} (احتياط الأسبوع ${ar(x.wk)}/${ar(x.q)} · ${ar(x.load)} حصص اليوم${x.same?' · نفس المادة':''}${x.dayOver?' · له احتياط اليوم':x.wkOver?' · استنفد حصته الأسبوعية':''})</option>`));
+    const opts=['<option value="">— بدون —</option>'].concat(c.map(x=>`<option value="${x.t.id}" ${x.t.id===s.sub?'selected':''}>${x.over?'⚠ ':''}${esc(x.t.name)} (احتياط الأسبوع ${ar(x.wk)}/${ar(x.q)} · ${ar(x.load)} حصص اليوم${x.same?' · نفس المادة':''}${x.q===0?' · معفى (النصاب ٢٣ فأكثر)':x.dayOver?' · له احتياط اليوم':x.wkOver?' · استنفد حصته الأسبوعية':''})</option>`));
     h+=`<div class="subrow"><div class="pnum">${ar(s.p)}</div><div><div><b>${esc(T[s.absent].name)}</b> <span class="tag red">غائب</span></div>
     <div class="meta"><bdi>الصف ${clsHTML(s.c)}</bdi> — <bdi>${esc(s.s)}</bdi> — <span class="cls">${TIMES[s.p-1]}–${TIMES_END[s.p-1]}</span></div>
     <select data-i="${i}" style="margin-top:6px">${opts.join('')}</select>${(()=>{const x=c.find(x=>x.t.id===s.sub);return x?`<div class="meta" style="margin-top:4px">${x.over?'<span style="color:var(--red)">⚠ تجاوز القاعدة — </span>':''}احتياط الأسبوع: ${ar(x.wk+1)} من ${ar(x.q)} · النصاب ${ar(weekLoad(x.t))} حصة</div>`:''})()}</div></div>`;
