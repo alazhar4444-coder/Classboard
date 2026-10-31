@@ -1,0 +1,20 @@
+name: Fetch Ahmed voice
+on:
+  push:
+    branches: [ sijil-voice-fetch ]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg && pip install faster-whisper
+      - run: |
+          mkdir -p out
+          curl -sSfL -o out/ahmed_full.mp3 "$(cat url.txt)"
+          ls -la out
+          python3 stt.py || true
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "sijil-ahmed-${{ github.run_number }}" out/* --target "${{ github.sha }}" --prerelease --title "Ahmed voice ${{ github.run_number }}" --notes "ElevenLabs Ahmed voiceover"
