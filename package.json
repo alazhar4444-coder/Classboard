@@ -1,0 +1,28 @@
+{
+  "name": "sijil-faisal-math",
+  "version": "1.0.0",
+  "description": "السجل المصاحب للمعلم — الرياضيات — الأستاذ فيصل الفارسي",
+  "author": "Al-Azhar Al-Naabi",
+  "main": "main.js",
+  "private": true,
+  "scripts": { "start": "electron .", "dist": "electron-builder --win nsis portable --x64 --publish never" },
+  "devDependencies": { "electron": "31.7.7", "electron-builder": "24.13.3" },
+  "build": {
+    "appId": "om.sijil.faisal.math",
+    "productName": "Sijil Math - Faisal Al-Farsi",
+    "copyright": "Designed by Al-Azhar Al-Naabi",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [ "main.js", "app/**", "build/icon.ico", "package.json" ],
+    "win": { "icon": "build/icon.ico", "executableName": "SijilMath" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "السجل المصاحب للمعلم - الرياضيات",
+      "artifactName": "Sijil-Math-Faisal-Setup-${version}.${ext}"
+    },
+    "portable": { "artifactName": "Sijil-Math-Faisal-Portable-${version}.${ext}" }
+  }
+}
