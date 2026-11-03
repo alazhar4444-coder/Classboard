@@ -1,0 +1,27 @@
+{
+  "name": "sijil-saeed-islamic",
+  "version": "1.0.0",
+  "description": "السجل المصاحب للمعلم — التربية الإسلامية — الأستاذ سعيد الناعبي",
+  "author": "Al-Azhar Al-Naabi",
+  "main": "main.js",
+  "private": true,
+  "scripts": { "start": "electron .", "dist": "electron-builder --win nsis --x64 --publish never" },
+  "devDependencies": { "electron": "31.7.7", "electron-builder": "24.13.3" },
+  "build": {
+    "appId": "om.sijil.saeed.islamic",
+    "productName": "Sijil Islamic - Saeed Al-Naabi",
+    "copyright": "Designed by Al-Azhar Al-Naabi",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [ "main.js", "app/**", "build/icon.ico", "package.json" ],
+    "win": { "icon": "build/icon.ico", "executableName": "SijilIslamic" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "السجل المصاحب للمعلم - التربية الإسلامية",
+      "artifactName": "Sijil-Islamic-Saeed-Setup-${version}.${ext}"
+    }
+  }
+}
