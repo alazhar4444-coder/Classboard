@@ -1,7 +1,7 @@
 name: Build APK
 on:
   push:
-    branches: [ sijil-apk ]
+    branches: [ saeed-apk ]
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,14 +22,14 @@ jobs:
       - name: Build release APK
         run: gradle :app:assembleRelease --no-daemon --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk "Alsijil-Almosahib-Lilmoallem.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "Sijil-Islamic-Saeed.apk"
       - uses: actions/upload-artifact@v4
         with:
-          name: Alsijil-Almosahib-Lilmoallem-APK
-          path: Alsijil-Almosahib-Lilmoallem.apk
+          name: Sijil-Islamic-Saeed-APK
+          path: Sijil-Islamic-Saeed.apk
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="sijil-v1.0.${{ github.run_number }}"
-          gh release create "$TAG" "Alsijil-Almosahib-Lilmoallem.apk" --target "${{ github.sha }}" --title "السجل المصاحب للمعلم $TAG" --notes "نسخة أندرويد من السجل المصاحب للمعلم — تصميم الأستاذ الأزهر الناعبي"
+          TAG="saeed-apk-v1.0.${{ github.run_number }}"
+          gh release create "$TAG" "Sijil-Islamic-Saeed.apk" --target "${{ github.sha }}" --title "سجل التربية الإسلامية — سعيد الناعبي $TAG" --notes "نسخة أندرويد من السجل المصاحب للمعلم (التربية الإسلامية) للأستاذ سعيد الناعبي — تصميم الأستاذ الأزهر الناعبي"
